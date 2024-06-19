@@ -10,6 +10,7 @@ import { CharacterSearch } from "./search/character-search";
 import { FreeCompanySearch } from "./search/freecompany-search";
 import { Linkshell } from "./linkshell/linkshell";
 import { LinkshellMembers } from "./linkshell/members";
+import { LinkshellSearch } from "./search/linkshell-search";
 
 const app = express();
 
@@ -25,6 +26,7 @@ const characterSearch = new CharacterSearch();
 const freecompanySearch = new FreeCompanySearch();
 const linkshellParser = new Linkshell();
 const linkshellMemberParser = new LinkshellMembers();
+const linkshellSearch = new LinkshellSearch();
 
 app.get("/Character/Search", async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
@@ -116,6 +118,20 @@ app.get("/FreeCompany/:fcId", async (req, res) => {
     if (err.message === "404") {
       return res.sendStatus(404);
     }
+    return res.status(500).send(err);
+  }
+});
+
+//Search for linkshells
+app.get("/Linkshell/Search", async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  try {
+    const parsed = await linkshellSearch.parse(req);
+    return res.status(200).send(parsed);
+  } catch (err: any) {
     return res.status(500).send(err);
   }
 });
