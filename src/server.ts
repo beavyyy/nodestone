@@ -1,6 +1,6 @@
 import express from "express";
-import logger from './logger/logger';
-import pinoHttp from 'pino-http';
+import logger from "./logger/logger";
+import pinoHttp from "pino-http";
 import { Character } from "./profile/character";
 import { Achievements } from "./profile/achievements";
 import { ClassJob } from "./profile/classjob";
@@ -8,6 +8,8 @@ import { FreeCompany } from "./freecompany/freecompany";
 import { FCMembers } from "./freecompany/members";
 import { CharacterSearch } from "./search/character-search";
 import { FreeCompanySearch } from "./search/freecompany-search";
+import { Linkshell } from "./linkshell/linkshell";
+import { LinkshellMembers } from "./linkshell/members";
 
 const app = express();
 
@@ -21,6 +23,8 @@ const freeCompanyParser = new FreeCompany();
 const freeCompanyMemberParser = new FCMembers();
 const characterSearch = new CharacterSearch();
 const freecompanySearch = new FreeCompanySearch();
+const linkshellParser = new Linkshell();
+const linkshellMemberParser = new LinkshellMembers();
 
 app.get("/Character/Search", async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
@@ -112,6 +116,59 @@ app.get("/FreeCompany/:fcId", async (req, res) => {
     if (err.message === "404") {
       return res.sendStatus(404);
     }
+    return res.status(500).send(err);
+  }
+});
+
+//Get linkshell name and list of members
+app.get("/Linkshell/:linkshellid", async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+
+  try {
+    const linkshell = await linkshellParser.parse(req, "LinkShell.");
+
+    const parsed: any = {
+      Linkshell: {
+        ID: +req.params.linkshellid,
+        ...linkshell,
+      },
+    };
+
+    //Fetch linkshell's members
+    parsed.LinkshellMembers = await linkshellMemberParser.parse(
+      req,
+      "LinkshellMembers."
+    );
+
+    //Loop through the remaining pages and fetch the rest of the members
+    while (parsed.LinkshellMembers.Pagination.PageNext !== null) {
+      req.query.page = parsed.LinkshellMembers.Pagination.PageNext;
+
+      const nextParseRes: any = await linkshellMemberParser.parse(
+        req,
+        "LinkshellMembers."
+      );
+
+      //Update member list with new results
+      parsed.LinkshellMembers.List = [
+        ...parsed.LinkshellMembers.List,
+        ...nextParseRes.List,
+      ];
+
+      //Update pagination
+      parsed.LinkshellMembers.Pagination = nextParseRes.Pagination;
+    }
+
+    return res.status(200).send(parsed);
+  } catch (err: any) {
+    if (err.message === "404") {
+      return res.sendStatus(404);
+    }
+    console.error(err);
     return res.status(500).send(err);
   }
 });
